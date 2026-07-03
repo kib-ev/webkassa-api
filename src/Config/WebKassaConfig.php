@@ -25,9 +25,14 @@ final class WebKassaConfig
         $merchant = is_array($config['merchant'] ?? null) ? $config['merchant'] : [];
         $epos = is_array($config['epos'] ?? null) ? $config['epos'] : [];
 
+        $baseUrl = rtrim((string) ($config['base_url'] ?? 'https://cabinet.webkassa.by/api'), '/');
+        if (! str_ends_with($baseUrl, '/api')) {
+            $baseUrl .= '/api';
+        }
+
         return new self(
             token: (string) ($config['token'] ?? ''),
-            baseUrl: rtrim((string) ($config['base_url'] ?? 'https://cabinet.webkassa.by/api'), '/'),
+            baseUrl: $baseUrl,
             timeout: (int) ($config['timeout'] ?? 120),
             timezone: (string) ($config['timezone'] ?? 'Europe/Minsk'),
             merchantName: (string) ($merchant['name'] ?? ''),

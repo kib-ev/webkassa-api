@@ -12,7 +12,7 @@ return [
     | Запросы разрешены только с IP, привязанного к ключу.
     |
     */
-    'token' => env('WEBKASSA_TOKEN', env('API_TOKEN')),
+    'token' => env('WEBKASSA_TOKEN', env('WEBKASSA_API_TOKEN', env('API_TOKEN'))),
 
     /*
     |--------------------------------------------------------------------------
