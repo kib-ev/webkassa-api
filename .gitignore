@@ -1,5 +1,8 @@
 /vendor/
-/output/
+/output/*
+!/output/.gitkeep
+/docs/*
+!/docs/.gitkeep
 .env
 composer.phar
 composer-setup.php

@@ -44,7 +44,7 @@ WEBKASSA_EPOS_DEFAULT_SERVICE=Аренда
     "repositories": [
         {
             "type": "path",
-            "url": "../webkassa/webkassa-api"
+            "url": "../webkassa-api"
         }
     ],
     "require": {
@@ -62,13 +62,12 @@ composer require kib-ev/webkassa-api
 ### Standalone (без Laravel)
 
 ```bash
-cd webkassa-api
 composer install
-export WEBKASSA_TOKEN=...
+cp .env.example .env
 php bin/export-epos --month=2026-06
 ```
 
-Файл `.env` можно положить в `webkassa-api/` или в родительскую папку `webkassa/`.
+Скопируйте `.env.example` в `.env` и укажите `WEBKASSA_TOKEN`.
 
 ## Laravel
 
@@ -143,21 +142,25 @@ $webkassa->client()->post('get-check-history', []);
 
 Метод `exportEposReport()` формирует xlsx в формате личного кабинета («Отчёт по платежам e-pos (Общий)»), совместимый с пакетной загрузкой в 1С.
 
-## Структура пакета
+## Структура проекта
 
 ```
-src/
-  Client/WebKassaClient.php      HTTP-клиент API
-  Config/WebKassaConfig.php      Конфигурация
-  Contracts/                     Интерфейсы для DI
-  Console/ExportEposCommand.php  Artisan-команда
-  Export/EposReportExporter.php  Выгрузка в Excel
-  Facades/WebKassa.php           Laravel Facade
-  Support/PeriodResolver.php     Разбор периода
-  WebKassaManager.php            Основной фасад SDK
-  WebKassaServiceProvider.php    Laravel provider
-config/webkassa.php
-bin/export-epos                  CLI без Laravel
+webkassa-api/
+├── bin/export-epos
+├── config/webkassa.php
+├── docs/                 # локальная документация API (опционально)
+├── output/               # выгрузки xlsx (gitignore)
+├── src/
+│   ├── Client/
+│   ├── Config/
+│   ├── Console/
+│   ├── Contracts/
+│   ├── Exceptions/
+│   ├── Export/
+│   ├── Facades/
+│   └── Support/
+├── .env.example
+└── composer.json
 ```
 
 ## Ошибки

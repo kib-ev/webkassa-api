@@ -46,11 +46,8 @@ HELP;
 }
 
 $packageRoot = dirname(__DIR__);
-foreach ([$packageRoot . '/.env', $packageRoot . '/../.env'] as $envFile) {
-    if (is_file($envFile) && class_exists(\Dotenv\Dotenv::class)) {
-        \Dotenv\Dotenv::createImmutable(dirname($envFile))->safeLoad();
-        break;
-    }
+if (is_file($packageRoot . '/.env') && class_exists(\Dotenv\Dotenv::class)) {
+    \Dotenv\Dotenv::createImmutable($packageRoot)->safeLoad();
 }
 
 /**
@@ -99,7 +96,7 @@ try {
     exit(1);
 }
 
-$output = $options['output'] ?? $packageRoot . '/../output/' . $from->format('Y-m') . '.xlsx';
+$output = $options['output'] ?? $packageRoot . '/output/' . $from->format('Y-m') . '.xlsx';
 
 $webkassa = new WebKassaManager($config);
 
