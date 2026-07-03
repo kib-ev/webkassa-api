@@ -12,33 +12,35 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use WebKassa\Config\WebKassaConfig;
 use WebKassa\Contracts\WebKassaClientInterface;
 use WebKassa\Exceptions\WebKassaException;
+use WebKassa\Support\EposPaymentNormalizer;
 
 final class EposReportExporter
 {
-    private readonly DateTimeZone $timezone;
+    private readonly EposPaymentNormalizer $normalizer;
 
     public function __construct(
         private readonly WebKassaClientInterface $client,
         private readonly WebKassaConfig $config,
     ) {
-        $this->timezone = new DateTimeZone($this->config->timezone);
+        $this->normalizer = new EposPaymentNormalizer($this->config);
     }
 
     public function exportPeriod(DateTimeInterface $from, DateTimeInterface $to, string $outputPath): int
     {
         $fromImmutable = DateTimeImmutable::createFromInterface($from);
         $toImmutable = DateTimeImmutable::createFromInterface($to);
+        $tz = new DateTimeZone($this->config->timezone);
 
-        $utc = new DateTimeZone('UTC');
-        $fromUtc = new DateTimeImmutable($fromImmutable->format('Y-m-d') . ' 00:00:00', $utc);
-        $toUtc = new DateTimeImmutable($toImmutable->format('Y-m-d') . ' 23:59:59', $utc);
+        $fromLocal = new DateTimeImmutable($fromImmutable->format('Y-m-d') . ' 00:00:00', $tz);
+        $toLocal = new DateTimeImmutable($toImmutable->format('Y-m-d') . ' 23:59:59', $tz);
 
         $payments = $this->client->getEposPayReport(
-            $fromUtc->getTimestamp() * 1000,
-            $toUtc->getTimestamp() * 1000 + 999,
+            $fromLocal->getTimestamp() * 1000,
+            $toLocal->getTimestamp() * 1000 + 999,
         );
 
-        $invoiceMap = $this->buildInvoiceMap();
+        $invoiceMap = $this->normalizer->buildInvoiceMap($this->client->getEposInvoices());
+        $rows = $this->normalizer->normalizePayments($payments, $invoiceMap);
 
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
@@ -84,23 +86,18 @@ final class EposReportExporter
         $totalSum = 0.0;
         $dataRow = $headerRow + 1;
 
-        foreach ($payments as $payment) {
-            $invoiceId = (int) ($payment['invoiceId'] ?? 0);
-            $invoice = $invoiceMap[$invoiceId] ?? null;
-
+        foreach ($rows as $row) {
             $sheet->fromArray(
                 [
-                    $this->formatPaymentType((string) ($payment['preDocTypeString'] ?? '')),
-                    (float) ($payment['totalSum'] ?? 0),
-                    (float) ($payment['transferAmount'] ?? 0),
-                    $this->formatTimestamp((int) ($payment['paymentDate'] ?? 0)),
-                    $payment['transactionId'] ?? '',
-                    (string) ($invoice['eposService'] ?? $this->config->defaultEposService),
-                    (string) ($payment['payerName'] ?? ''),
-                    isset($invoice['invoiceDate'])
-                        ? $this->formatTimestamp((int) $invoice['invoiceDate'])
-                        : '',
-                    $invoice['invoiceNumber'] ?? $this->extractAccountNumber((string) ($payment['fullEposNumber'] ?? '')),
+                    $row['payment_method'],
+                    $row['amount'],
+                    $row['net_amount'],
+                    $row['paid_at'],
+                    $row['operation_number'],
+                    $row['epos_service'],
+                    $row['payer_raw'],
+                    $row['invoice_created_at'],
+                    $row['account_number'],
                     '',
                     '',
                 ],
@@ -108,7 +105,7 @@ final class EposReportExporter
                 'B' . $dataRow,
             );
 
-            $totalSum += (float) ($payment['totalSum'] ?? 0);
+            $totalSum += (float) $row['amount'];
             $dataRow++;
         }
 
@@ -117,57 +114,7 @@ final class EposReportExporter
 
         $this->saveSpreadsheet($spreadsheet, $outputPath);
 
-        return count($payments);
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildInvoiceMap(): array
-    {
-        $map = [];
-
-        foreach ($this->client->getEposInvoices() as $invoice) {
-            $invoiceId = (int) ($invoice['invoiceId'] ?? 0);
-            if ($invoiceId > 0) {
-                $map[$invoiceId] = $invoice;
-            }
-        }
-
-        return $map;
-    }
-
-    private function formatPaymentType(string $value): string
-    {
-        $value = trim($value);
-
-        if ($value === '') {
-            return 'Оплата счета';
-        }
-
-        return str_ends_with($value, ' e-pos')
-            ? substr($value, 0, -strlen(' e-pos'))
-            : $value;
-    }
-
-    private function formatTimestamp(int $timestampMs): string
-    {
-        if ($timestampMs <= 0) {
-            return '';
-        }
-
-        return (new DateTimeImmutable('@' . intdiv($timestampMs, 1000)))
-            ->setTimezone($this->timezone)
-            ->format('Y-m-d H:i:s');
-    }
-
-    private function extractAccountNumber(string $fullEposNumber): string|int
-    {
-        if (preg_match('/-i(\d+)$/', $fullEposNumber, $matches) === 1) {
-            return (int) $matches[1];
-        }
-
-        return '';
+        return count($rows);
     }
 
     private function saveSpreadsheet(Spreadsheet $spreadsheet, string $outputPath): void

@@ -71,6 +71,10 @@ final class WebKassaClient implements WebKassaClientInterface
             );
         }
 
+        if (trim($response) === '') {
+            throw new WebKassaException('WebKassa returned an empty response.');
+        }
+
         try {
             $data = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
@@ -92,6 +96,10 @@ final class WebKassaClient implements WebKassaClientInterface
         ]);
     }
 
+    /**
+     * @param array<string, mixed>|object|null $filters
+     * @return array<int, array<string, mixed>>
+     */
     public function getEposInvoices(array|object|null $filters = null): array
     {
         return $this->post('epos-invoice/list', $filters ?? new \stdClass());

@@ -11,6 +11,7 @@ use WebKassa\Client\WebKassaClient;
 use WebKassa\Config\WebKassaConfig;
 use WebKassa\Contracts\WebKassaClientInterface;
 use WebKassa\Export\EposReportExporter;
+use WebKassa\Support\EposPaymentNormalizer;
 
 final class WebKassaManager
 {
@@ -36,9 +37,20 @@ final class WebKassaManager
      */
     public function eposPayReport(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        [$fromMs, $toMs] = $this->periodToUtcMilliseconds($from, $to);
+        [$fromMs, $toMs] = $this->periodToMilliseconds($from, $to);
 
         return $this->client()->getEposPayReport($fromMs, $toMs);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function eposPayReportBetween(DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        return $this->client()->getEposPayReport(
+            $this->toMilliseconds($from),
+            $this->toMilliseconds($to),
+        );
     }
 
     /**
@@ -48,6 +60,40 @@ final class WebKassaManager
     public function eposInvoices(array|object|null $filters = null): array
     {
         return $this->client()->getEposInvoices($filters);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function eposPayments(DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        $payments = $this->eposPayReport($from, $to);
+
+        if ($payments === []) {
+            return [];
+        }
+
+        $normalizer = new EposPaymentNormalizer($this->config);
+        $invoiceMap = $normalizer->buildInvoiceMap($this->eposInvoices());
+
+        return $normalizer->normalizePayments($payments, $invoiceMap);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function eposPaymentsBetween(DateTimeInterface $from, DateTimeInterface $to): array
+    {
+        $payments = $this->eposPayReportBetween($from, $to);
+
+        if ($payments === []) {
+            return [];
+        }
+
+        $normalizer = new EposPaymentNormalizer($this->config);
+        $invoiceMap = $normalizer->buildInvoiceMap($this->eposInvoices());
+
+        return $normalizer->normalizePayments($payments, $invoiceMap);
     }
 
     public function exportEposReport(DateTimeInterface $from, DateTimeInterface $to, string $outputPath): int
@@ -63,16 +109,21 @@ final class WebKassaManager
     /**
      * @return array{0: int, 1: int}
      */
-    private function periodToUtcMilliseconds(DateTimeInterface $from, DateTimeInterface $to): array
+    private function periodToMilliseconds(DateTimeInterface $from, DateTimeInterface $to): array
     {
-        $utc = new DateTimeZone('UTC');
+        $tz = new DateTimeZone($this->config->timezone);
 
-        $fromUtc = new DateTimeImmutable($from->format('Y-m-d') . ' 00:00:00', $utc);
-        $toUtc = new DateTimeImmutable($to->format('Y-m-d') . ' 23:59:59', $utc);
+        $fromLocal = new DateTimeImmutable($from->format('Y-m-d') . ' 00:00:00', $tz);
+        $toLocal = new DateTimeImmutable($to->format('Y-m-d') . ' 23:59:59', $tz);
 
         return [
-            $fromUtc->getTimestamp() * 1000,
-            $toUtc->getTimestamp() * 1000 + 999,
+            $fromLocal->getTimestamp() * 1000,
+            $toLocal->getTimestamp() * 1000 + 999,
         ];
+    }
+
+    private function toMilliseconds(DateTimeInterface $moment): int
+    {
+        return $moment->getTimestamp() * 1000;
     }
 }
