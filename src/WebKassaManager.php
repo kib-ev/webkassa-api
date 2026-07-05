@@ -65,6 +65,14 @@ final class WebKassaManager
     /**
      * @return array<int, array<string, mixed>>
      */
+    public function eposPayers(): array
+    {
+        return $this->client()->getEposPayers();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
     public function eposPayments(DateTimeInterface $from, DateTimeInterface $to): array
     {
         $payments = $this->eposPayReport($from, $to);

@@ -104,4 +104,12 @@ final class WebKassaClient implements WebKassaClientInterface
     {
         return $this->post('epos-invoice/list', $filters ?? new \stdClass());
     }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getEposPayers(): array
+    {
+        return $this->post('epos-payer/list', new \stdClass());
+    }
 }

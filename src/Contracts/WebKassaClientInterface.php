@@ -22,4 +22,9 @@ interface WebKassaClientInterface
      * @return array<int, array<string, mixed>>
      */
     public function getEposInvoices(array|object|null $filters = null): array;
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getEposPayers(): array;
 }

@@ -134,6 +134,9 @@ $payments = $webkassa->eposPayReport($from, $to);
 // POST /epos-invoice/list
 $invoices = $webkassa->eposInvoices();
 
+// POST /epos-payer/list
+$payers = $webkassa->eposPayers();
+
 // Произвольный endpoint
 $webkassa->client()->post('get-check-history', []);
 ```
